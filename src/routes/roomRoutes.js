@@ -1,16 +1,16 @@
 import express from "express";
 import Room from "../models/Room.js";
 import auth from "../middleware/auth.js";
+
 import { upload } from "../middleware/upload.js";
 import cloudinary from "../config/cloudinary.js";
 
 const router = express.Router();
 
 /**
- * PUBLIC: Get all rooms
+ * PUBLIC: Only active rooms
  * GET /api/rooms
  */
-// PUBLIC: Only active rooms
 router.get("/", async (req, res) => {
   try {
     const rooms = await Room.find({ isActive: true }).sort({ createdAt: -1 });
@@ -20,6 +20,18 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * ADMIN: Get ALL rooms (active + inactive)
+ * GET /api/rooms/all
+ */
+router.get("/all", auth, async (req, res) => {
+  try {
+    const rooms = await Room.find().sort({ createdAt: -1 });
+    res.json(rooms);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 /**
  * ADMIN: Create room
@@ -30,7 +42,9 @@ router.post("/", auth, async (req, res) => {
     const { title, price, capacity, isActive } = req.body;
 
     if (!title || price === undefined || capacity === undefined) {
-      return res.status(400).json({ message: "title, price, capacity are required" });
+      return res
+        .status(400)
+        .json({ message: "title, price, capacity are required" });
     }
 
     const room = await Room.create({
@@ -110,12 +124,8 @@ router.post("/:id/image", auth, upload.single("image"), async (req, res) => {
 
     res.json(room);
   } catch (err) {
-    console.log("UPLOAD ERROR:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
-
-
 export default router;
-

@@ -17,14 +17,27 @@ import adminSeedRoutes from "./routes/adminSeedRoutes.js";
 
 const app = express();
 
-// ✅ CORS (localhost + vercel)
-const allowed = ["http://localhost:5173", process.env.CLIENT_URL].filter(Boolean);
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://stay-dine-frontend.vercel.app",
+  "https://stay-dine-frontend-r5bjb08jn-samadsatar84s-projects.vercel.app"
+];
+
 app.use(
   cors({
-    origin: allowed,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
+
 
 app.use(express.json());
 
