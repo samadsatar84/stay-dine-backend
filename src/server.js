@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
-import cors from "cors";
+
 
 import connectDB from "./config/db.js";
 
@@ -17,26 +17,25 @@ import adminSeedRoutes from "./routes/adminSeedRoutes.js";
 
 const app = express();
 
+import cors from "cors";
+
 const allowedOrigins = [
   "http://localhost:5173",
   "https://stay-dine-frontend.vercel.app",
-  "https://stay-dine-frontend-r5bjb08jn-samadsatar84s-projects.vercel.app"
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
+      // allow requests with no origin (Postman)
       if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("CORS blocked: " + origin));
     },
     credentials: true,
   })
 );
+
 
 
 app.use(express.json());
