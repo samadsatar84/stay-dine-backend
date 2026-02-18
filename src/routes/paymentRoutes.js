@@ -3,35 +3,40 @@ import Stripe from "stripe";
 import Room from "../models/Room.js";
 
 const router = express.Router();
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 router.post("/checkout-room", async (req, res) => {
   try {
-    const { roomId, nights = 1 } = req.body;
-    if (!roomId) return res.status(400).json({ message: "roomId required" });
+    const { roomId, nights } = req.body;
+
+    if (!roomId || !nights) {
+      return res.status(400).json({ message: "roomId and nights are required" });
+    }
 
     const room = await Room.findById(roomId);
     if (!room) return res.status(404).json({ message: "Room not found" });
 
-    const n = Math.max(1, Number(nights));
-    const amountPKR = n * Number(room.price);
+    const qty = Number(nights);
+    if (qty <= 0) return res.status(400).json({ message: "Invalid nights" });
+
+    const clientUrl =
+      process.env.CLIENT_URL || "http://localhost:5173"; // ✅ fallback
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["card"],
       line_items: [
         {
           price_data: {
             currency: "pkr",
-            product_data: { name: `Stay & Dine — ${room.title}` },
-            unit_amount: Math.round(amountPKR * 100), // PKR -> paisa
+            product_data: { name: `${room.title} (Per night)` },
+            unit_amount: Math.round(Number(room.price) * 100),
           },
-          quantity: 1,
+          quantity: qty,
         },
       ],
-      success_url: `${process.env.CLIENT_URL}/payment-success`,
-      cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
-      metadata: { roomId: String(room._id), nights: String(n) },
+      success_url: `${clientUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${clientUrl}/payment-cancel`,
     });
 
     res.json({ url: session.url });

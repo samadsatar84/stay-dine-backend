@@ -8,25 +8,15 @@ import cloudinary from "../config/cloudinary.js";
 const router = express.Router();
 
 /**
- * PUBLIC: Only active rooms
+ * PUBLIC: Get rooms
  * GET /api/rooms
+ * Optional: /api/rooms?active=true  (only active)
  */
 router.get("/", async (req, res) => {
   try {
-    const rooms = await Room.find({ isActive: true }).sort({ createdAt: -1 });
-    res.json(rooms);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-/**
- * ADMIN: Get ALL rooms (active + inactive)
- * GET /api/rooms/all
- */
-router.get("/all", auth, async (req, res) => {
-  try {
-    const rooms = await Room.find().sort({ createdAt: -1 });
+    const onlyActive = req.query.active === "true";
+    const filter = onlyActive ? { isActive: true } : {};
+    const rooms = await Room.find(filter).sort({ createdAt: -1 });
     res.json(rooms);
   } catch (err) {
     res.status(500).json({ message: err.message });

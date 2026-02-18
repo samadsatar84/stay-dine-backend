@@ -7,6 +7,7 @@ const bookingSchema = new mongoose.Schema(
     room: { type: mongoose.Schema.Types.ObjectId, ref: "Room", required: true },
     checkIn: { type: String, required: true },
     checkOut: { type: String, required: true },
+    guests: { type: Number, required: true }, // ✅ add this
     status: { type: String, default: "pending" },
   },
   { timestamps: true }
