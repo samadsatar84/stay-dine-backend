@@ -10,19 +10,25 @@ const router = express.Router();
  */
 router.post("/", async (req, res) => {
   try {
-    const { name, phone, roomId, checkIn, checkOut, guests } = req.body;
+    const { name, phone, room, roomId, checkIn, checkOut, guests } = req.body;
 
-    if (!name || !phone || !roomId || !checkIn || !checkOut || !guests) {
+    // ✅ accept both: room OR roomId
+    const finalRoomId = room || roomId;
+
+    if (!name || !phone || !finalRoomId || !checkIn || !checkOut) {
       return res.status(400).json({ message: "All fields required" });
     }
 
+    const g = Number(guests) || 1;
+    if (g < 1) return res.status(400).json({ message: "Invalid guests" });
+
     const booking = await Booking.create({
-      name,
-      phone,
-      room: roomId, // ✅ map
+      name: String(name).trim(),
+      phone: String(phone).trim(),
+      room: finalRoomId,
       checkIn,
       checkOut,
-      guests: Number(guests),
+      guests: g,
     });
 
     res.status(201).json(booking);
@@ -40,6 +46,7 @@ router.get("/", auth, async (req, res) => {
     const list = await Booking.find()
       .populate("room", "title price image")
       .sort({ createdAt: -1 });
+
     res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });

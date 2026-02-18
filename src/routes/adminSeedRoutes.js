@@ -9,8 +9,8 @@ const router = express.Router();
  * POST /api/admin/seed-dummy
  * Body: { key: "12345" }
  *
- * Ye dummy rooms + menu items create/update kar dega.
- * Same titles dubara seed karo to duplicates nahi banayega (upsert).
+ * Safe seeding: bulkWrite/upsert nahi, find+save.
+ * Is se "Path `title` is not in schema" wala crash khatam.
  */
 router.post("/seed-dummy", async (req, res) => {
   try {
@@ -21,16 +21,17 @@ router.post("/seed-dummy", async (req, res) => {
       return res.status(401).json({ message: "Invalid seed key" });
     }
 
-    // Optional: ensure admin exists (if tumhara admin already hai, ignore)
-    // (Agar tumhara Admin model different fields use karta hai, is part ko comment kar do)
+    // ====== ensure admin exists (optional) ======
     const adminEmail = "admin@stay.com";
     const adminPass = "admin123";
+
     const adminExists = await Admin.findOne({ email: adminEmail });
     if (!adminExists) {
+      // agar tumhare Admin model me aur fields required hon, yahan add kar dena
       await Admin.create({ email: adminEmail, password: adminPass });
     }
 
-    // ====== DUMMY ROOMS (professional images) ======
+    // ====== DUMMY ROOMS ======
     const rooms = [
       {
         title: "Executive Gold Suite",
@@ -82,19 +83,38 @@ router.post("/seed-dummy", async (req, res) => {
       },
     ];
 
-    // upsert by title
-    const roomOps = rooms.map((r) => ({
-      updateOne: {
-        filter: { title: r.title },
-        update: { $set: r },
-        upsert: true,
-      },
-    }));
-    await Room.bulkWrite(roomOps);
+    for (const r of rooms) {
+      // ✅ supports both schemas: (title) or (name)
+      const existing = await Room.findOne({
+        $or: [{ title: r.title }, { name: r.title }],
+      });
 
-    // ====== DUMMY MENU (restaurant) ======
+      if (existing) {
+        // assign safely (schema me jo field hogi wahi save hogi)
+        if ("title" in existing) existing.title = r.title;
+        if ("name" in existing) existing.name = r.title;
+
+        if ("price" in existing) existing.price = r.price;
+        if ("capacity" in existing) existing.capacity = r.capacity;
+        if ("isActive" in existing) existing.isActive = r.isActive;
+        if ("image" in existing) existing.image = r.image;
+
+        await existing.save();
+      } else {
+        // create: dono fields set kar do, schema jo allow karega woh store ho jayega
+        await Room.create({
+          title: r.title,
+          name: r.title,
+          price: r.price,
+          capacity: r.capacity,
+          isActive: r.isActive,
+          image: r.image,
+        });
+      }
+    }
+
+    // ====== DUMMY MENU ======
     const menu = [
-      // Starters
       {
         title: "Truffle Fries",
         price: 1650,
@@ -113,15 +133,13 @@ router.post("/seed-dummy", async (req, res) => {
           "https://images.unsplash.com/photo-1604908176997-125f25cc500f?auto=format&fit=crop&w=1400&q=80",
         desc: "Spicy creamy dynamite sauce, premium chicken bites.",
       },
-
-      // Main Course
       {
         title: "Grilled Chicken Steak",
         price: 2950,
         category: "Main Course",
         isActive: true,
         image:
-          "https://images.unsplash.com/photo-1604908176997-9d5a1a6fbb77?auto=format&fit=crop&w=1400&q=80",
+          "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=1400&q=80",
         desc: "Juicy grilled steak, pepper sauce, sautéed veggies.",
       },
       {
@@ -133,8 +151,6 @@ router.post("/seed-dummy", async (req, res) => {
           "https://images.unsplash.com/photo-1630409346695-840d7d24604f?auto=format&fit=crop&w=1400&q=80",
         desc: "Aromatic basmati, tender beef, raita & salad.",
       },
-
-      // BBQ
       {
         title: "BBQ Platter (2 Persons)",
         price: 4200,
@@ -144,8 +160,6 @@ router.post("/seed-dummy", async (req, res) => {
           "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=1400&q=80",
         desc: "Seekh kebab, chicken tikka, malai boti, naan & sauce.",
       },
-
-      // Desserts
       {
         title: "Molten Lava Cake",
         price: 1250,
@@ -155,8 +169,6 @@ router.post("/seed-dummy", async (req, res) => {
           "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=1400&q=80",
         desc: "Warm chocolate lava, vanilla ice cream.",
       },
-
-      // Beverages
       {
         title: "Signature Mint Mojito",
         price: 850,
@@ -168,21 +180,42 @@ router.post("/seed-dummy", async (req, res) => {
       },
     ];
 
-    // upsert by title
-    const menuOps = menu.map((m) => ({
-      updateOne: {
-        filter: { title: m.title },
-        update: { $set: m },
-        upsert: true,
-      },
-    }));
-    await MenuItem.bulkWrite(menuOps);
+    for (const m of menu) {
+      const existing = await MenuItem.findOne({
+        $or: [{ title: m.title }, { name: m.title }],
+      });
+
+      if (existing) {
+        if ("title" in existing) existing.title = m.title;
+        if ("name" in existing) existing.name = m.title;
+
+        if ("price" in existing) existing.price = m.price;
+        if ("category" in existing) existing.category = m.category;
+        if ("isActive" in existing) existing.isActive = m.isActive;
+        if ("image" in existing) existing.image = m.image;
+        if ("desc" in existing) existing.desc = m.desc;
+        if ("description" in existing) existing.description = m.desc;
+
+        await existing.save();
+      } else {
+        await MenuItem.create({
+          title: m.title,
+          name: m.title,
+          price: m.price,
+          category: m.category,
+          isActive: m.isActive,
+          image: m.image,
+          desc: m.desc,
+          description: m.desc,
+        });
+      }
+    }
 
     const roomsCount = await Room.countDocuments();
     const menuCount = await MenuItem.countDocuments();
 
     res.json({
-      message: "Dummy data seeded successfully",
+      message: "Dummy data seeded successfully ✅",
       roomsCount,
       menuCount,
       admin: { email: adminEmail, password: adminPass },

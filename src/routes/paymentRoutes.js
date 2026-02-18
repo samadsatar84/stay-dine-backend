@@ -10,18 +10,19 @@ router.post("/checkout-room", async (req, res) => {
   try {
     const { roomId, nights } = req.body;
 
-    if (!roomId || !nights) {
+    if (!roomId || nights === undefined) {
       return res.status(400).json({ message: "roomId and nights are required" });
+    }
+
+    const qty = Number(nights);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return res.status(400).json({ message: "Invalid nights" });
     }
 
     const room = await Room.findById(roomId);
     if (!room) return res.status(404).json({ message: "Room not found" });
 
-    const qty = Number(nights);
-    if (qty <= 0) return res.status(400).json({ message: "Invalid nights" });
-
-    const clientUrl =
-      process.env.CLIENT_URL || "http://localhost:5173"; // ✅ fallback
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

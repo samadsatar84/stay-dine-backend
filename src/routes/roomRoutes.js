@@ -10,11 +10,11 @@ const router = express.Router();
 /**
  * PUBLIC: Get rooms
  * GET /api/rooms
- * Optional: /api/rooms?active=true  (only active)
+ * Optional query: ?active=true  -> only active rooms
  */
 router.get("/", async (req, res) => {
   try {
-    const onlyActive = req.query.active === "true";
+    const onlyActive = String(req.query.active || "") === "true";
     const filter = onlyActive ? { isActive: true } : {};
     const rooms = await Room.find(filter).sort({ createdAt: -1 });
     res.json(rooms);
@@ -32,9 +32,7 @@ router.post("/", auth, async (req, res) => {
     const { title, price, capacity, isActive } = req.body;
 
     if (!title || price === undefined || capacity === undefined) {
-      return res
-        .status(400)
-        .json({ message: "title, price, capacity are required" });
+      return res.status(400).json({ message: "title, price, capacity are required" });
     }
 
     const room = await Room.create({
